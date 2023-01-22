@@ -77,12 +77,12 @@ square_pages_front = {1:  [(t3, pd, d), (v3, pc, d)],
                       5:  [(h4, pa, u), (v2, pb, u)],
                       6:  [(t3, pc, d), (v3, pd, d)],
                       7:  [(t3, pa, d), (v3, pb, d)],
-                      8:  [(h4, pa, d), (v2, pb, u)],
+                      8:  [(h4, pb, d), (v4, pd, u)],
                       9:  [(h3, pc, d), (r3, pa, d)],
                       10: [(h3, pd, d), (r3, pb, d)],
                       11: [(h2, pb, u), (v4, pa, u)],
                       12: [(t3, pb, d), (v3, pa, d)],
-                      # 13: [(cover, pall, u)]
+                      13: [(cover, pall, u)]
                       }
 
 square_pages_back = {1:  [(r4, pb, d)],
@@ -97,7 +97,7 @@ square_pages_back = {1:  [(r4, pb, d)],
                      10: [(t4, pa, u)],
                      11: [(t1, pc, u), (hv1, pd, u), (r1, pb, u)],
                      12: [(r4, pa, d)],
-                     # 13: [(cover2, pall, u)]
+                     13: [(cover2, pall, u)]
                      }
 
 # unfolded squares
@@ -111,21 +111,15 @@ square_locs = {1:  [0, 0], 2:  [1, 0], 3: [2, 0], 4: [3, 0],
                10: [0, 3], 9:  [1, 3], 8: [2, 3], 7: [3, 3]}
 
 
+def square_size(square_number):
+    return 2 if square_number == 13 else 1
+
+
 # (square_nb, front/back, up/down)
 page_squares = {hv1: [[(5, b, u), (2, b, d)],
                       [(1, b, d), (11, b, u)]]}
 
 dest_dimension = (page_length * 4, page_length * 4)
-
-
-def paste0(im, loc, dest):
-    square_number, side, up = loc
-    square_loc = square_locs[square_number]
-    if up == 'd':
-        im = im.rotate(180)
-    left = square_loc[0] * page_length
-    top = square_loc[1] * page_length
-    dest.paste(im, (left, top))
 
 
 def copy(page_name, page_part, upside_down=False):
@@ -149,8 +143,11 @@ def copy(page_name, page_part, upside_down=False):
 def paste(im, dest, square_number):
     square_loc = square_locs[square_number]
     im_width, im_height = im.size
-    left_offset = math.floor((page_length - im_width) / 2)
-    top_offset = math.floor((page_length - im_height) / 2)
+    left_offset = 0
+    top_offset = 0
+    correct_page_length = page_length * square_size(square_number)
+    left_offset = math.floor((correct_page_length - im_width) / 2)
+    top_offset = math.floor((correct_page_length - im_height) / 2)
     left = left_offset + square_loc[0] * page_length
     top = top_offset + square_loc[1] * page_length
     dest.paste(im, (left, top))
@@ -169,38 +166,14 @@ def assemble():
     return assembled
 
 
-def assemble0():
-    front = Image.new('L', dest_dimension, color=255)
-    back = Image.new('L', dest_dimension, color=255)
-    for page_name, locs in page_squares.items():
-        print(page_name)
-        im = Image.open(Path(f'../{page_name}.tif'))
-        width, height = im.size
-        row_count = len(locs)
-        col_count = len(locs[0])
-        crop_width = math.floor(width / col_count)
-        crop_height = math.floor(height / row_count)
-        for x, row in enumerate(locs):
-            left = x * crop_width
-            right = left + crop_width
-            for y, loc in enumerate(row):
-                print(x, y)
-                upper = y * crop_height
-                lower = upper + crop_height
-                cropped = im.crop((left, upper, right, lower))
-                # cropped.show()
-                side = loc[1]
-                dest = front if side == 'f' else back
-                paste0(cropped, loc, dest)
-    back.show()
-
-
 def main():
     # cropped = crop(r4, pa)
     # cropped = crop(h2, pb)
     # cropped = crop(t3, pd)
     # cropped.show()
     assembled = assemble()
+    assembled[0].save('front.tif')
+    assembled[1].save('back.tif')
     assembled[0].show()
     assembled[1].show()
 
