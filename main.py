@@ -152,14 +152,14 @@ def paste(im, dest, square_number):
     dest.paste(im, (left, top))
 
 
-def assemble_for_print(source_path=Path('..')):
+def assemble_for_print(source_path):
     assembled = []
     for square_pages in [square_pages_front, square_pages_back]:
         dest_img = None
         for square_number, (source, *s) in square_pages.items():
             # for square_number, (source, *s) in list(square_pages.items())[:8]:
             page_name, page_part, up = source
-            copied = copy(page_name, page_part, up == d)
+            copied = copy(page_name, page_part, up == d, source_path)
             if not dest_img:
                 w, h = copied.size
                 dest_img = Image.new('L', (w*4, h*4), color=255)
@@ -171,32 +171,23 @@ def assemble_for_print(source_path=Path('..')):
 
 def save_image(image, name):
     path = BUILD / name
+    if not BUILD.exists():
+        BUILD.mkdir(parents=True, exist_ok=True)
     image.save(path)
     print(f'saved {path}')
     return image
 
 
-def assemble_for_print_and_save():
+def assemble_for_print_and_save(path=Path('..')):
     # cropped = crop(r4, pa)
     # cropped = crop(h2, pb)
     # cropped = crop(t3, pd)
     # cropped.show()
-    assembled = assemble_for_print()
+    assembled = assemble_for_print(path)
     front = save_image(assembled[0], 'front.tif')
     back = save_image(assembled[1], 'back.tif')
     front.show()
     back.show()
-
-# def build_page_sizes():
-#     page_sizes = {}
-#     for square_pages in [square_pages_front, square_pages_back]:
-#         for pages in square_pages.values():
-#             for page in pages:
-#                 page_name, page_part, up = page
-#                 if page_name not in page_sizes:
-#                     page_sizes[page_name] = 0
-#                 page_sizes[page_name] += 1
-#     return page_sizes
 
 
 def page_size(page_name, square_length):
@@ -254,7 +245,6 @@ def assemble_pages(path=Path('..')):
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == 'p':
         print('make pages')
-        assemble_pages(Path('..'))
-
+        assemble_pages(Path('../dessins'))
     else:
-        assemble_for_print_and_save()
+        assemble_for_print_and_save(BUILD)
