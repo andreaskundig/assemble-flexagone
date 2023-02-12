@@ -73,12 +73,12 @@ def width_height_multiplicator(page_name):
 # (page, quarter, up/down
 square_pages_front = {1:  [(t3, pd, d), (v3, pc, d)],
                       2:  [(h2, pa, d), (v2, pa, u)],
-                      3:  [(h3, pb, d), (r3, pb, d)],
+                      3:  [(h3, pb, d), (r3, pd, d)],
                       4:  [(h3, pa, d), (r3, pc, d)],
                       5:  [(h4, pa, u), (v2, pb, u)],
                       6:  [(t3, pc, d), (v3, pd, d)],
                       7:  [(t3, pa, d), (v3, pb, d)],
-                      8:  [(h4, pb, d), (v4, pd, u)],
+                      8:  [(h4, pb, d), (v4, pb, u)],
                       9:  [(h3, pc, d), (r3, pa, d)],
                       10: [(h3, pd, d), (r3, pb, d)],
                       11: [(h2, pb, u), (v4, pa, u)],
@@ -116,8 +116,7 @@ def square_size(square_number):
     return 2 if square_number == 13 else 1
 
 
-def copy(page_name, page_part, rotate180=False, path=Path('..')):
-    im = Image.open(path / f'{page_name}.tif')
+def crop(im, page_name, page_part, rotate180=False, path=Path('..')):
     width, height = im.size
     wm, hm = width_height_multiplicator(page_name)
     crop_width = width * wm
@@ -133,6 +132,11 @@ def copy(page_name, page_part, rotate180=False, path=Path('..')):
     if rotate180:
         im = im.rotate(180)
     return im
+
+
+def copy(page_name, page_part, rotate180=False, path=Path('..')):
+    im = Image.open(path / f'{page_name}.tif')
+    return crop(im, page_name, page_part, rotate180, path)
 
 
 def paste(im, dest, square_number):
@@ -211,39 +215,46 @@ def perpendicular(page_name1, page_name2):
     return is_vertical(page_name1) != is_vertical(page_name2)
 
 
-def assemble_pages():
+def assemble_pages(path=Path('..')):
     # page_sizes = build_page_sizes()
+    images = {}
     for square_pages in [square_pages_front, square_pages_back]:
         for (original, *targets) in square_pages.values():
+            o_page_name, o_page_part, _ = original
+            o_im = Image.open(path / f'{o_page_name}.tif')
+            save_image(o_im, f'{o_page_name}.tif')
             if targets:
-                print(original)
-                o_page_name, o_page_part, _ = original
-                copied = copy(o_page_name, o_page_part)
+                copied = copy(o_page_name, o_page_part, False, path)
                 length = copied.size[0]
                 # copied.show()
                 for target in targets:
                     t_page_name, t_page_part, _ = target
+                    p_size = page_size(t_page_name, length)
+                    if t_page_name not in images:
+                        images[t_page_name] = Image.new('L', p_size,
+                                                        color=255)
+                    t_image = images[t_page_name]
                     x, y = page_part_coordinates(t_page_name, t_page_part)
-                    left = x * length
-                    top = y * length
-                    width, height = page_size(t_page_name, length)
+                    t_left_top = (x * length, y * length)
                     rotate = perpendicular(o_page_name, t_page_name)
-                    # TODO determine rotation for h2 h4 v2 v4
                     # h2 pa -> v2 pa rotate 180
                     # h2 pb -> v4 pa rotate 180
                     # h4 pa -> v3 pb rotate 180
                     # h4 pb -> v3 pb rotate 180
-                    print('copy to', target, left, top, width, height, rotate)
-
-        ##         dest_img = Image.new('L', dest_dimension, color=255)
-
-            # break
+                    if rotate:
+                        copied = copied.rotate(180)
+                    print(f'copy {o_page_name} {o_page_part} to',
+                          f'{t_page_name} {t_page_part}',
+                          t_left_top, p_size, rotate)
+                    t_image.paste(copied, t_left_top)
+    for page_name, image in images.items():
+        save_image(image, f'{page_name}.tif')
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == 'p':
         print('make pages')
-        assemble_pages()
+        assemble_pages(Path('..'))
 
     else:
         assemble_for_print_and_save()
