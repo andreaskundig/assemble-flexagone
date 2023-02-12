@@ -5,8 +5,6 @@ from PIL import Image
 
 BUILD = Path('build')
 
-page_length = 1712
-
 u = 'up'
 d = 'down'
 f = 'front'
@@ -118,11 +116,8 @@ def square_size(square_number):
     return 2 if square_number == 13 else 1
 
 
-dest_dimension = (page_length * 4, page_length * 4)
-
-
-def copy(page_name, page_part, rotate180=False):
-    im = Image.open(Path(f'../{page_name}.tif'))
+def copy(page_name, page_part, rotate180=False, path=Path('..')):
+    im = Image.open(path / f'{page_name}.tif')
     width, height = im.size
     wm, hm = width_height_multiplicator(page_name)
     crop_width = width * wm
@@ -143,8 +138,8 @@ def copy(page_name, page_part, rotate180=False):
 def paste(im, dest, square_number):
     square_loc = square_locs[square_number]
     im_width, im_height = im.size
-    left_offset = 0
-    top_offset = 0
+    square_length = square_size(square_number)
+    page_length = math.floor(im_width / square_length)
     correct_page_length = page_length * square_size(square_number)
     left_offset = math.floor((correct_page_length - im_width) / 2)
     top_offset = math.floor((correct_page_length - im_height) / 2)
@@ -153,15 +148,19 @@ def paste(im, dest, square_number):
     dest.paste(im, (left, top))
 
 
-def assemble_for_print():
+def assemble_for_print(source_path=Path('..')):
     assembled = []
     for square_pages in [square_pages_front, square_pages_back]:
-        dest_img = Image.new('L', dest_dimension, color=255)
-        assembled.append(dest_img)
+        dest_img = None
         for square_number, (source, *s) in square_pages.items():
             # for square_number, (source, *s) in list(square_pages.items())[:8]:
             page_name, page_part, up = source
             copied = copy(page_name, page_part, up == d)
+            if not dest_img:
+                w, h = copied.size
+                dest_img = Image.new('L', (w*4, h*4), color=255)
+                assembled.append(dest_img)
+            print('copied', page_name, copied.size)
             paste(copied, dest_img, square_number)
     return assembled
 
@@ -247,4 +246,4 @@ if __name__ == "__main__":
         assemble_pages()
 
     else:
-        assemble_for_print()
+        assemble_for_print_and_save()
