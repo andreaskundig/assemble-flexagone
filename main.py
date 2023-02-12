@@ -1,6 +1,9 @@
+import sys
 import math
 from pathlib import Path
 from PIL import Image
+
+BUILD = Path('build')
 
 page_length = 1712
 
@@ -115,27 +118,24 @@ def square_size(square_number):
     return 2 if square_number == 13 else 1
 
 
-# (square_nb, front/back, up/down)
-page_squares = {hv1: [[(5, b, u), (2, b, d)],
-                      [(1, b, d), (11, b, u)]]}
-
 dest_dimension = (page_length * 4, page_length * 4)
 
 
-def copy(page_name, page_part, upside_down=False):
+def copy(page_name, page_part, rotate180=False):
     im = Image.open(Path(f'../{page_name}.tif'))
     width, height = im.size
     wm, hm = width_height_multiplicator(page_name)
     crop_width = width * wm
     crop_height = height * hm
     crop_x, crop_y = page_part_coordinates(page_name, page_part)
-    print(page_name, page_part, wm, hm, crop_x, crop_y, upside_down)
+    # print(page_name, page_part, wm, hm, crop_x, crop_y, rotate180)
     left = crop_x * crop_width
     right = left + crop_width
     upper = crop_y * crop_height
     lower = upper + crop_height
+    # print(left, right, upper, lower)
     im = im.crop((left, upper, right, lower))
-    if upside_down:
+    if rotate180:
         im = im.rotate(180)
     return im
 
@@ -153,7 +153,7 @@ def paste(im, dest, square_number):
     dest.paste(im, (left, top))
 
 
-def assemble():
+def assemble_for_print():
     assembled = []
     for square_pages in [square_pages_front, square_pages_back]:
         dest_img = Image.new('L', dest_dimension, color=255)
@@ -166,16 +166,85 @@ def assemble():
     return assembled
 
 
-def main():
+def save_image(image, name):
+    path = BUILD / name
+    image.save(path)
+    print(f'saved {path}')
+    return image
+
+
+def assemble_for_print_and_save():
     # cropped = crop(r4, pa)
     # cropped = crop(h2, pb)
     # cropped = crop(t3, pd)
     # cropped.show()
-    assembled = assemble()
-    assembled[0].save('front.tif')
-    assembled[1].save('back.tif')
-    assembled[0].show()
-    assembled[1].show()
+    assembled = assemble_for_print()
+    front = save_image(assembled[0], 'front.tif')
+    back = save_image(assembled[1], 'back.tif')
+    front.show()
+    back.show()
+
+# def build_page_sizes():
+#     page_sizes = {}
+#     for square_pages in [square_pages_front, square_pages_back]:
+#         for pages in square_pages.values():
+#             for page in pages:
+#                 page_name, page_part, up = page
+#                 if page_name not in page_sizes:
+#                     page_sizes[page_name] = 0
+#                 page_sizes[page_name] += 1
+#     return page_sizes
 
 
-main()
+def page_size(page_name, square_length):
+    width = square_length
+    height = square_length
+    if is_full_page(page_name) or is_vertical(page_name):
+        height *= 2
+    if is_full_page(page_name) or not is_vertical(page_name):
+        width *= 2
+    return (width, height)
+
+
+def perpendicular(page_name1, page_name2):
+    if is_full_page(page_name1) or is_full_page(page_name2):
+        return False
+    return is_vertical(page_name1) != is_vertical(page_name2)
+
+
+def assemble_pages():
+    # page_sizes = build_page_sizes()
+    for square_pages in [square_pages_front, square_pages_back]:
+        for (original, *targets) in square_pages.values():
+            if targets:
+                print(original)
+                o_page_name, o_page_part, _ = original
+                copied = copy(o_page_name, o_page_part)
+                length = copied.size[0]
+                # copied.show()
+                for target in targets:
+                    t_page_name, t_page_part, _ = target
+                    x, y = page_part_coordinates(t_page_name, t_page_part)
+                    left = x * length
+                    top = y * length
+                    width, height = page_size(t_page_name, length)
+                    rotate = perpendicular(o_page_name, t_page_name)
+                    # TODO determine rotation for h2 h4 v2 v4
+                    # h2 pa -> v2 pa rotate 180
+                    # h2 pb -> v4 pa rotate 180
+                    # h4 pa -> v3 pb rotate 180
+                    # h4 pb -> v3 pb rotate 180
+                    print('copy to', target, left, top, width, height, rotate)
+
+        ##         dest_img = Image.new('L', dest_dimension, color=255)
+
+            # break
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == 'p':
+        print('make pages')
+        assemble_pages()
+
+    else:
+        assemble_for_print()
