@@ -1,7 +1,7 @@
 import sys
 import math
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageDraw
 
 BUILD = Path('build')
 
@@ -166,6 +166,12 @@ def assemble_for_print(source_path):
                 assembled.append(dest_img)
             print('copied', page_name, copied.size)
             paste(copied, dest_img, square_number)
+        draw = ImageDraw.Draw(dest_img)
+        width, height = dest_img.size
+        draw.rectangle([0, 0, width - 1, height - 1], None, 'black')
+        points = [math.floor(i) for i in [width * 0.25, height * 0.25,
+                                          width * 0.75, height * 0.75]]
+        draw.rectangle(points, None, 'black')
     return assembled
 
 
