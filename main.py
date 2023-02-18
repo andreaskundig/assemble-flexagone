@@ -98,7 +98,7 @@ square_pages_back = {1:  [(r4, pb, d)],
                      10: [(t4, pa, u)],
                      11: [(t1, pc, u), (hv1, pd, u), (r1, pb, u)],
                      12: [(r4, pa, d)],
-                     13: [(cover2, pall, u)]
+                     13: [(cover2, pall, d)]
                      }
 
 # unfolded squares
@@ -153,6 +153,7 @@ def paste(im, dest, square_number):
 
 
 def assemble_for_print(source_path):
+    print('copying from', source_path)
     assembled = []
     for square_pages in [square_pages_front, square_pages_back]:
         dest_img = None
