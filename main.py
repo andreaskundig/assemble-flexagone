@@ -1,7 +1,8 @@
 import sys
 import math
 from pathlib import Path
-from PIL import Image, ImageDraw
+from itertools import product
+from PIL import Image, ImageDraw, ImageOps
 
 BUILD = Path('build')
 
@@ -169,10 +170,11 @@ def assemble_for_print(source_path):
             paste(copied, dest_img, square_number)
         draw = ImageDraw.Draw(dest_img)
         width, height = dest_img.size
-        draw.rectangle([0, 0, width - 1, height - 1], None, 'black')
+        # draw.rectangle([0, 0, width - 1, height - 1],
+        #                width=3, outline='black')
         points = [math.floor(i) for i in [width * 0.25, height * 0.25,
                                           width * 0.75, height * 0.75]]
-        draw.rectangle(points, None, 'black')
+        draw.rectangle(points, width=3)
     return assembled
 
 
@@ -180,9 +182,35 @@ def save_image(image, name):
     path = BUILD / name
     if not BUILD.exists():
         BUILD.mkdir(parents=True, exist_ok=True)
+    image = image.convert('1')
     image.save(path)
     print(f'saved {path}')
     return image
+
+
+def save_as_a3_pdf(images):
+    dpi = 1200
+    a3_width = 297
+    # a3_height = 420
+    im_length_px = images[0].size[0]  # a square
+    mm_per_inch = 25.4
+    im_length_mm = (im_length_px / dpi) * mm_per_inch
+    margin_mm = (a3_width - im_length_mm) / 2
+    margin_px = math.floor((margin_mm / mm_per_inch) * dpi)
+    margin_images = []
+    for im in images:
+        expanded = ImageOps.expand(im, border=margin_px, fill='white')
+        draw = ImageDraw.Draw(expanded)
+        oth = im_length_px + margin_px
+        for point in product([0, oth], [0, oth]):
+            points = point + tuple([c + margin_px for c in point])
+            draw.rectangle(points, width=5)
+        margin_images.append(expanded)
+    [front, *rest] = margin_images
+    path = BUILD / 'fleur.pdf'
+    front.save(path, save_all=True, resolution=dpi,
+               append_images=rest)
+    print(f'saved {path}')
 
 
 def assemble_for_print_and_save(path=Path('..')):
@@ -193,8 +221,9 @@ def assemble_for_print_and_save(path=Path('..')):
     assembled = assemble_for_print(path)
     front = save_image(assembled[0], 'front.tif')
     back = save_image(assembled[1], 'back.tif')
-    front.show()
-    back.show()
+    save_as_a3_pdf([front, back])
+    # front.show()
+    # back.show()
 
 
 def page_size(page_name, square_length):
