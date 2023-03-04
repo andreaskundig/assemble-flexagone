@@ -187,6 +187,20 @@ def save_image(image, name):
     print(f'saved {path}')
     return image
 
+def draw_corner_squares(image, margin_px):
+    print('draw squares')
+    draw = ImageDraw.Draw(image)
+    oth = image.size[0]
+    for point in product([0, oth], [0, oth]):
+        points = point + tuple([c + margin_px for c in point])
+        draw.rectangle(points, width=5)
+
+def expand_into_margins(image, margin_px):
+    width, height = image.size
+    box = (margin_px, margin_px, margin_px+1, height - margin_px)
+    destination = (margin_px-5, margin_px)
+    cropped = image.crop(box)
+    image.paste(cropped, destination)
 
 def save_as_a3_pdf(images):
     dpi = 1200
@@ -200,11 +214,8 @@ def save_as_a3_pdf(images):
     margin_images = []
     for im in images:
         expanded = ImageOps.expand(im, border=margin_px, fill='white')
-        draw = ImageDraw.Draw(expanded)
-        oth = im_length_px + margin_px
-        for point in product([0, oth], [0, oth]):
-            points = point + tuple([c + margin_px for c in point])
-            draw.rectangle(points, width=5)
+        draw_corner_squares(expanded, margin_px)
+        # expand_into_margins(expanded, margin_px)
         margin_images.append(expanded)
     [front, *rest] = margin_images
     path = BUILD / 'fleur.pdf'
