@@ -188,9 +188,8 @@ def save_image(image, name):
     return image
 
 def draw_corner_squares(image, margin_px):
-    print('draw squares')
     draw = ImageDraw.Draw(image)
-    oth = image.size[0]
+    oth = image.size[0] - margin_px
     for point in product([0, oth], [0, oth]):
         points = point + tuple([c + margin_px for c in point])
         draw.rectangle(points, width=5)
