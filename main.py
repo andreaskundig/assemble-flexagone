@@ -253,6 +253,15 @@ def perpendicular(page_name1, page_name2):
 
 
 def assemble_pages(path=Path('..')):
+    """Takes original page images from path
+       and creates the missing page images
+       by copying the parts of the the originals
+       to the other pages where they appear
+       so they can be read sequentially in a presentation
+       without having a physical flexagon.
+       The original is considered to be the first page
+       in the lists of square_pages_front and _back.
+    """
     # page_sizes = build_page_sizes()
     images = {}
     for square_pages in [square_pages_front, square_pages_back]:
