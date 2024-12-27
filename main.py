@@ -2,6 +2,7 @@ import sys
 import math
 from pathlib import Path
 from itertools import product
+from dataclasses import dataclass
 from PIL import Image, ImageDraw, ImageOps
 
 BUILD = Path('build')
@@ -168,17 +169,19 @@ def assemble_for_print(source_path):
                 assembled.append(dest_img)
             print('copied', page_name, copied.size)
             paste(copied, dest_img, square_number)
-        draw = ImageDraw.Draw(dest_img)
-        width, height = dest_img.size
-        # draw.rectangle([0, 0, width - 1, height - 1],
-        #                width=3, outline='black')
-        points = [math.floor(i) for i in [width * 0.25, height * 0.25,
-                                          width * 0.75, height * 0.75]]
-        draw.rectangle(points, width=3)
+        if dest_img:
+            draw = ImageDraw.Draw(dest_img)
+            width, height = dest_img.size
+            # draw.rectangle([0, 0, width - 1, height - 1],
+            #                width=3, outline='black')
+            points = [math.floor(i) for i in [width * 0.25, height * 0.25,
+                                            width * 0.75, height * 0.75]]
+            draw.rectangle(points, width=3)
     return assembled
 
 
 def save_image(image, name):
+    '''Saves images to build dir'''
     path = BUILD / name
     if not BUILD.exists():
         BUILD.mkdir(parents=True, exist_ok=True)
@@ -251,6 +254,36 @@ def perpendicular(page_name1, page_name2):
         return False
     return is_vertical(page_name1) != is_vertical(page_name2)
 
+@dataclass
+class PagePart:
+    page: str
+    part: str
+    image: Image.Image | None = None
+    def __str__(self):
+        return f' {self.page} {self.part}'
+
+def copy_image_part(original: PagePart, target: PagePart, images, path):
+    if not original.image:
+        original.image = copy(original.page, original.part, False, path)
+    copied = original.image
+    length = copied.size[0]
+    # t_page_name, t_page_part, _ = target
+    t_p_size = page_size(target.page, length)
+    if target.page not in images:
+        images[target.page] = Image.new('L', t_p_size,
+                                        color=255)
+    t_image = images[target.page]
+    x, y = page_part_coordinates(target.page, target.part)
+    t_left_top = (x * length, y * length)
+    rotate = perpendicular(original.page, target.page)
+    # h2 pa -> v2 pa rotate 180
+    # h2 pb -> v4 pa rotate 180
+    # h4 pa -> v3 pb rotate 180
+    # h4 pb -> v3 pb rotate 180
+    if rotate:
+        copied = copied.rotate(180)
+    print(f'copy {original} to {target}', t_left_top, t_p_size, rotate)
+    t_image.paste(copied, t_left_top)
 
 def assemble_pages(path=Path('..')):
     """Takes original page images from path
@@ -261,41 +294,21 @@ def assemble_pages(path=Path('..')):
        without having a physical flexagon.
        The original is considered to be the first page
        in the lists of square_pages_front and _back.
+       Images are saved to the build dir.
     """
     # page_sizes = build_page_sizes()
     images = {}
     for square_pages in [square_pages_front, square_pages_back]:
-        for (original, *targets) in square_pages.values():
-            o_page_name, o_page_part, _ = original
-            o_im = Image.open(path / f'{o_page_name}.tif')
-            save_image(o_im, f'{o_page_name}.tif')
+        for (orig, *targets) in square_pages.values():
+            original = PagePart(page=orig[0], part=orig[1])
+            o_im = Image.open(path / f'{original.page}.tif')
+            save_image(o_im, f'{original.page}.tif')
             if targets:
-                copied = copy(o_page_name, o_page_part, False, path)
-                length = copied.size[0]
-                # copied.show()
-                for target in targets:
-                    t_page_name, t_page_part, _ = target
-                    p_size = page_size(t_page_name, length)
-                    if t_page_name not in images:
-                        images[t_page_name] = Image.new('L', p_size,
-                                                        color=255)
-                    t_image = images[t_page_name]
-                    x, y = page_part_coordinates(t_page_name, t_page_part)
-                    t_left_top = (x * length, y * length)
-                    rotate = perpendicular(o_page_name, t_page_name)
-                    # h2 pa -> v2 pa rotate 180
-                    # h2 pb -> v4 pa rotate 180
-                    # h4 pa -> v3 pb rotate 180
-                    # h4 pb -> v3 pb rotate 180
-                    if rotate:
-                        copied = copied.rotate(180)
-                    print(f'copy {o_page_name} {o_page_part} to',
-                          f'{t_page_name} {t_page_part}',
-                          t_left_top, p_size, rotate)
-                    t_image.paste(copied, t_left_top)
+                for targ in targets:
+                    target = PagePart(page=targ[0], part=targ[1])
+                    copy_image_part(original, target, images, path)
     for page_name, image in images.items():
         save_image(image, f'{page_name}.tif')
-
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == 'p':
