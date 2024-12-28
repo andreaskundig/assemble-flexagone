@@ -103,6 +103,22 @@ square_pages_back = {1:  [(r4, pb, d)],
                      13: [(cover2, pall, d)]
                      }
 
+@dataclass
+class PagePart:
+    page: str
+    part: str
+    orientation: str | None = None
+    image: Image.Image | None = None
+    def filename(self):
+        return f'{self.page}.tif'
+    def __str__(self):
+        return f' {self.page} {self.part}'
+
+page_parts_front = {k:[PagePart(*val) for val in vals]
+                    for k,vals in square_pages_front.items()}
+page_parts_back = {k:[PagePart(*val) for val in vals]
+                    for k,vals in square_pages_back.items()}
+
 # unfolded squares
 #  1  2  3  4
 # 12 13     5
@@ -254,17 +270,9 @@ def perpendicular(page_name1, page_name2):
         return False
     return is_vertical(page_name1) != is_vertical(page_name2)
 
-@dataclass
-class PagePart:
-    page: str
-    part: str
-    image: Image.Image | None = None
-    def __str__(self):
-        return f' {self.page} {self.part}'
-
-def copy_image_part(original: PagePart, target: PagePart, images, path):
+def copy_image_part(original: PagePart, target: PagePart, images):
     if not original.image:
-        original.image = copy(original.page, original.part, False, path)
+        raise Exception(f'Missing image for {original}')
     copied = original.image
     length = copied.size[0]
     # t_page_name, t_page_part, _ = target
@@ -298,15 +306,19 @@ def assemble_pages(path=Path('..')):
     """
     # page_sizes = build_page_sizes()
     images = {}
-    for square_pages in [square_pages_front, square_pages_back]:
-        for (orig, *targets) in square_pages.values():
-            original = PagePart(page=orig[0], part=orig[1])
-            o_im = Image.open(path / f'{original.page}.tif')
-            save_image(o_im, f'{original.page}.tif')
+    for page_parts in [page_parts_front, page_parts_back]:
+        for pps in page_parts.values():
+            original = next(p for p in pps if (path/p.filename()).exists())
+            original.image = copy(original.page, original.part, False, path)
+            targets = pps.copy()
+            targets.remove(original)
+            # (original, *targets) = pps
+            o_im = Image.open(path/original.filename())
+            # print(path / original.filename())
+            save_image(o_im, original.filename())
             if targets:
-                for targ in targets:
-                    target = PagePart(page=targ[0], part=targ[1])
-                    copy_image_part(original, target, images, path)
+                for target in targets:
+                    copy_image_part(original, target, images)
     for page_name, image in images.items():
         save_image(image, f'{page_name}.tif')
 
