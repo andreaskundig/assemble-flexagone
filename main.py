@@ -196,11 +196,11 @@ def assemble_for_print(source_path):
     return assembled
 
 
-def save_image(image, name):
+def save_image(image, name, build_path=BUILD):
     '''Saves images to build dir'''
-    path = BUILD / name
-    if not BUILD.exists():
-        BUILD.mkdir(parents=True, exist_ok=True)
+    path = build_path / name
+    if not build_path.exists():
+        build_path.mkdir(parents=True, exist_ok=True)
     image = image.convert('1')
     image.save(path)
     print(f'saved {path}')
@@ -220,7 +220,7 @@ def expand_into_margins(image, margin_px):
     cropped = image.crop(box)
     image.paste(cropped, destination)
 
-def save_as_a3_pdf(images):
+def save_as_a3_pdf(images, build_path=BUILD):
     dpi = 1200
     a3_width = 297
     # a3_height = 420
@@ -236,7 +236,7 @@ def save_as_a3_pdf(images):
         # expand_into_margins(expanded, margin_px)
         margin_images.append(expanded)
     [front, *rest] = margin_images
-    path = BUILD / 'fleur.pdf'
+    path = build_path / 'fleur.pdf'
     front.save(path, save_all=True, resolution=dpi,
                append_images=rest)
     print(f'saved {path}')
@@ -248,9 +248,9 @@ def assemble_for_print_and_save(path=Path('..')):
     # cropped = crop(t3, pd)
     # cropped.show()
     assembled = assemble_for_print(path)
-    front = save_image(assembled[0], 'front.tif')
-    back = save_image(assembled[1], 'back.tif')
-    save_as_a3_pdf([front, back])
+    front = save_image(assembled[0], 'front.tif', path)
+    back = save_image(assembled[1], 'back.tif', path)
+    save_as_a3_pdf([front, back], path)
     # front.show()
     # back.show()
 
@@ -275,7 +275,7 @@ def copy_image_part(original: PagePart, target: PagePart, images):
         raise Exception(f'Missing image for {original}')
     copied = original.image
     length = copied.size[0]
-    # t_page_name, t_page_part, _ = target
+    print(f'{original} length: {length}')
     t_p_size = page_size(target.page, length)
     if target.page not in images:
         images[target.page] = Image.new('L', t_p_size,
@@ -325,6 +325,8 @@ def assemble_pages(path=Path('..')):
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == 'p':
         print('make pages')
+        # assemble_pages(Path('../../fleur-oeil/dessins'))
         assemble_pages(Path('../dessins'))
     else:
-        assemble_for_print_and_save(BUILD)
+        # assemble_for_print_and_save(Path('build-fleur-oeil'))
+        assemble_for_print_and_save(Path('build-fleur'))
