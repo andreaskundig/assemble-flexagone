@@ -151,11 +151,9 @@ def crop(im, page_name, page_part, rotate180=False, path=Path('..')):
         im = im.rotate(180)
     return im
 
-
 def copy(page_name, page_part, rotate180=False, path=Path('..')):
     im = Image.open(path / f'{page_name}.tif')
     return crop(im, page_name, page_part, rotate180, path)
-
 
 def paste(im, dest, square_number):
     square_loc = square_locs[square_number]
@@ -169,38 +167,43 @@ def paste(im, dest, square_number):
     top = top_offset + square_loc[1] * page_length
     dest.paste(im, (left, top))
 
+def assemble_sheet(front: bool, source_path) -> Image.Image:
+    square_pages = square_pages_front if front else square_pages_back
+    dest_img: Image.Image | None = None
+    for square_number, (source, *s) in square_pages.items():
+        # for square_number, (source, *s) in list(square_pages.items())[:8]:
+        page_name, page_part, up = source
+        copied = copy(page_name, page_part, up == d, source_path)
+        if not dest_img:
+            w, h = copied.size
+            dest_img = Image.new('L', (w*4, h*4), color=255)
+        print('copied', page_name, copied.size)
+        paste(copied, dest_img, square_number)
+    if not dest_img:
+        raise Exception('No image assembled')
+    draw = ImageDraw.Draw(dest_img)
+    width, height = dest_img.size
+    # draw.rectangle([0, 0, width - 1, height - 1],
+    #                width=3, outline='black')
+    points = [math.floor(i) for i in [width * 0.25, height * 0.25,
+                                    width * 0.75, height * 0.75]]
+    draw.rectangle(points, width=3)
+    return dest_img
 
 def assemble_for_print(source_path):
     print('copying from', source_path)
-    assembled = []
-    for square_pages in [square_pages_front, square_pages_back]:
-        dest_img = None
-        for square_number, (source, *s) in square_pages.items():
-            # for square_number, (source, *s) in list(square_pages.items())[:8]:
-            page_name, page_part, up = source
-            copied = copy(page_name, page_part, up == d, source_path)
-            if not dest_img:
-                w, h = copied.size
-                dest_img = Image.new('L', (w*4, h*4), color=255)
-                assembled.append(dest_img)
-            print('copied', page_name, copied.size)
-            paste(copied, dest_img, square_number)
-        if dest_img:
-            draw = ImageDraw.Draw(dest_img)
-            width, height = dest_img.size
-            # draw.rectangle([0, 0, width - 1, height - 1],
-            #                width=3, outline='black')
-            points = [math.floor(i) for i in [width * 0.25, height * 0.25,
-                                            width * 0.75, height * 0.75]]
-            draw.rectangle(points, width=3)
+    front = assemble_sheet(True, source_path)
+    back = assemble_sheet(False, source_path)
+    assembled = [front, back]
     return assembled
 
 
-def save_image(image, name, build_path=BUILD):
+def save_image(image:Image.Image, name, build_path=BUILD):
     '''Saves images to build dir'''
     path = build_path / name
     if not build_path.exists():
         build_path.mkdir(parents=True, exist_ok=True)
+    # The image is saved as a 1-bit image
     image = image.convert('1')
     image.save(path)
     print(f'saved {path}')
@@ -330,3 +333,9 @@ if __name__ == "__main__":
     else:
         # assemble_for_print_and_save(Path('build-fleur-oeil'))
         assemble_for_print_and_save(Path('build-fleur'))
+
+    if 0 > 1:
+        # assembled = assemble_for_print(Path('build-fleur'))
+        # front = assembled[0]
+        front = assemble_sheet(False, Path('build-fleur'))
+        front.show()
