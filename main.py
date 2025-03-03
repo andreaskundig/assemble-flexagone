@@ -124,15 +124,20 @@ page_parts_back = {k:[PagePart(*val) for val in vals]
 # 12 13     5
 # 11        6
 # 10  9  8  7
-square_locs = {1:  [0, 0], 2:  [1, 0], 3: [2, 0], 4: [3, 0],
-               12: [0, 1], 13: [1, 1],            5: [3, 1],
-               11: [0, 2],                        6: [3, 2],
-               10: [0, 3], 9:  [1, 3], 8: [2, 3], 7: [3, 3]}
+square_locs = {
+    1:  [0, 0], 2:  [1, 0], 3: [2, 0], 4: [3, 0],
+    12: [0, 1], 13: [1, 1],            5: [3, 1],
+    11: [0, 2],                        6: [3, 2],
+    10: [0, 3], 9:  [1, 3], 8: [2, 3], 7: [3, 3]}
 
+square_folding_margin_offsets = {
+    1:  [0, 0], 2:  [1, 0], 3: [3, 0], 4: [4, 0],
+    12: [0, 1], 13: [1, 1],            5: [4, 1],
+    11: [0, 3],                        6: [4, 3],
+    10: [0, 4], 9:  [1, 4], 8: [3, 4], 7: [4, 4]}
 
 def square_size(square_number):
     return 2 if square_number == 13 else 1
-
 
 def crop(im, page_name, page_part, rotate180=False, path=Path('..')):
     width, height = im.size
@@ -227,6 +232,7 @@ def expand_into_margins(image, margin_px):
     image.paste(cropped, destination)
 
 def save_as_a3_pdf(images, build_path=BUILD):
+    # TODO check if images need to be resized after we add folding margins
     dpi = 1200
     a3_width = 297
     # a3_height = 420
