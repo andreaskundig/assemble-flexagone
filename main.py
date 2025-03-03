@@ -61,7 +61,7 @@ def page_part_coordinates(p_name, part):
     return coordinates[page_parts.index(part)]
 
 
-def width_height_multiplicator(page_name):
+def width_height_multiplicator(page_name) -> tuple[float,float]:
     if page_name in [cover, cover2]:
         return (1, 1)
     if is_full_page(page_name):
@@ -151,6 +151,11 @@ def crop(im, page_name, page_part, rotate180=False, path=Path('..')):
         im = im.rotate(180)
     return im
 
+def page_part_width(path:Path, page_name=t3):
+    im = Image.open(path / f'{page_name}.tif')
+    wm = width_height_multiplicator(page_name)[0]
+    return im.size[0] * wm
+
 def copy(page_name, page_part, rotate180=False, path=Path('..')):
     im = Image.open(path / f'{page_name}.tif')
     return crop(im, page_name, page_part, rotate180, path)
@@ -169,18 +174,16 @@ def paste(im, dest, square_number):
 
 def assemble_sheet(front: bool, source_path) -> Image.Image:
     square_pages = square_pages_front if front else square_pages_back
-    dest_img: Image.Image | None = None
+    w = math.floor(page_part_width(source_path))
+    # TODO take folding margin into account
+    dest_img = Image.new('L', (w*4, w*4), color=255)
     for square_number, (source, *s) in square_pages.items():
         # for square_number, (source, *s) in list(square_pages.items())[:8]:
         page_name, page_part, up = source
         copied = copy(page_name, page_part, up == d, source_path)
-        if not dest_img:
-            w, h = copied.size
-            dest_img = Image.new('L', (w*4, h*4), color=255)
         print('copied', page_name, copied.size)
+        # TODO take folding margin into account
         paste(copied, dest_img, square_number)
-    if not dest_img:
-        raise Exception('No image assembled')
     draw = ImageDraw.Draw(dest_img)
     width, height = dest_img.size
     # draw.rectangle([0, 0, width - 1, height - 1],
