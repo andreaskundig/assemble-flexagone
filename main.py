@@ -132,7 +132,7 @@ square_locs = {
 
 square_folding_margin_offsets = {
     1:  [0, 0], 2:  [1, 0], 3: [3, 0], 4: [4, 0],
-    12: [0, 1], 13: [1, 1],            5: [4, 1],
+    12: [0, 1], 13: [0, 0],            5: [4, 1],
     11: [0, 3],                        6: [4, 3],
     10: [0, 4], 9:  [1, 4], 8: [3, 4], 7: [4, 4]}
 
@@ -165,37 +165,39 @@ def copy(page_name, page_part, rotate180=False, path=Path('..')):
     im = Image.open(path / f'{page_name}.tif')
     return crop(im, page_name, page_part, rotate180, path)
 
-def paste(im, dest, square_number):
+def left_top(square_number, im_size, folding_margin):
     square_loc = square_locs[square_number]
-    im_width, im_height = im.size
+    fmo = square_folding_margin_offsets[square_number]
+    left_fm, top_fm = [offset * folding_margin for offset in fmo]
+    im_width, im_height = im_size
     square_length = square_size(square_number)
     page_length = math.floor(im_width / square_length)
     correct_page_length = page_length * square_size(square_number)
-    left_offset = math.floor((correct_page_length - im_width) / 2)
-    top_offset = math.floor((correct_page_length - im_height) / 2)
+    left_offset = math.floor((correct_page_length - im_width) / 2) + left_fm
+    top_offset = math.floor((correct_page_length - im_height) / 2) + top_fm
     left = left_offset + square_loc[0] * page_length
     top = top_offset + square_loc[1] * page_length
+    return (left, top)
+
+def paste(im, dest, square_number, folding_margin=0):
+    left, top = left_top(square_number,im.size, folding_margin)
     dest.paste(im, (left, top))
 
-def assemble_sheet(front: bool, source_path) -> Image.Image:
+def assemble_sheet(front: bool, source_path:Path, folding_margin=0) -> Image.Image:
     square_pages = square_pages_front if front else square_pages_back
     w = math.floor(page_part_width(source_path))
-    # TODO take folding margin into account
-    dest_img = Image.new('L', (w*4, w*4), color=255)
+    size = (w + folding_margin) * 4
+    dest_img = Image.new('L', (size, size), color=255)
     for square_number, (source, *s) in square_pages.items():
         # for square_number, (source, *s) in list(square_pages.items())[:8]:
         page_name, page_part, up = source
         copied = copy(page_name, page_part, up == d, source_path)
         print('copied', page_name, copied.size)
-        # TODO take folding margin into account
-        paste(copied, dest_img, square_number)
+        paste(copied, dest_img, square_number, folding_margin)
     draw = ImageDraw.Draw(dest_img)
-    width, height = dest_img.size
-    # draw.rectangle([0, 0, width - 1, height - 1],
-    #                width=3, outline='black')
-    points = [math.floor(i) for i in [width * 0.25, height * 0.25,
-                                    width * 0.75, height * 0.75]]
-    draw.rectangle(points, width=3)
+    center_square_points = [*left_top(13, (w*2, w*2), folding_margin),
+                            *left_top(7, (w, w), folding_margin)]
+    draw.rectangle(center_square_points, width=3)
     return dest_img
 
 def assemble_for_print(source_path):
@@ -346,5 +348,7 @@ if __name__ == "__main__":
     if 0 > 1:
         # assembled = assemble_for_print(Path('build-fleur'))
         # front = assembled[0]
-        front = assemble_sheet(False, Path('build-fleur'))
+
+        # front = assemble_sheet(False, Path('build-fleur'))
+        front = assemble_sheet(False, Path('build-fleur'), 100)
         front.show()
