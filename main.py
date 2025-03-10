@@ -5,6 +5,9 @@ from itertools import product
 from dataclasses import dataclass
 from PIL import Image, ImageDraw, ImageOps
 
+MM_PER_INCH = 25.4
+A3_WIDTH_MM = 297
+# A3_HEIGHT_MM = 420
 BUILD = Path('build')
 
 u = 'up'
@@ -226,23 +229,35 @@ def draw_corner_squares(image, margin_px):
         points = point + tuple([c + margin_px for c in point])
         draw.rectangle(points, width=5)
 
-def expand_into_margins(image, margin_px):
+def expand_into_margins(image: Image.Image, margin_px):
     width, height = image.size
     box = (margin_px, margin_px, margin_px+1, height - margin_px)
     destination = (margin_px-5, margin_px)
     cropped = image.crop(box)
     image.paste(cropped, destination)
 
-def save_as_a3_pdf(images, build_path=BUILD):
-    # TODO check if images need to be resized after we add folding margins
-    dpi = 1200
-    a3_width = 297
-    # a3_height = 420
-    im_length_px = images[0].size[0]  # a square
-    mm_per_inch = 25.4
-    im_length_mm = (im_length_px / dpi) * mm_per_inch
-    margin_mm = (a3_width - im_length_mm) / 2
-    margin_px = math.floor((margin_mm / mm_per_inch) * dpi)
+def image_width_mm(image, dpi):
+    im_length_px = image.size[0]
+    return (im_length_px / dpi) * MM_PER_INCH
+
+def scale_factor_a3(image, dpi, margin_mm=5):
+    width_with_margin_mm = image_width_mm(image, dpi) + margin_mm
+    return A3_WIDTH_MM / width_with_margin_mm
+
+def scale_image_for_a3(image, dpi, margin_mm=5):
+    scale = scale_factor_a3(image, dpi, margin_mm)
+    # choose a resampling filter that keeps the image without greys
+    return ImageOps.scale(image, scale, Image.NEAREST)
+
+def save_as_a3_pdf(images, build_path=BUILD, dpi=1200):
+    build_path.mkdir(parents=True, exist_ok=True)
+
+    unused_width_mm = A3_WIDTH_MM - image_width_mm(images[0], dpi)
+    if unused_width_mm < 0:
+        print(unused_width_mm, image_width_mm(images[0], dpi))
+        raise Exception(f'Image is too wide for A3')
+    margin_mm = unused_width_mm / 2
+    margin_px = math.floor((margin_mm / MM_PER_INCH) * dpi)
     margin_images = []
     for im in images:
         expanded = ImageOps.expand(im, border=margin_px, fill='white')
@@ -350,5 +365,10 @@ if __name__ == "__main__":
         # front = assembled[0]
 
         # front = assemble_sheet(False, Path('build-fleur'))
+        # save_as_a3_pdf([front], Path('build-test'))
         front = assemble_sheet(False, Path('build-fleur'), 100)
-        front.show()
+        front_scaled = scale_image_for_a3(front, 1200, 0)
+        # front_scaled.show()
+
+        save_as_a3_pdf([front_scaled], Path('build-test'))
+# ValueError: x1 must be greater than or equal to x0
